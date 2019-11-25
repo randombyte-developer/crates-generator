@@ -1,0 +1,9 @@
+/.idea/
+/.gradle/
+/build/
+
+*.jar
+!gradle-wrapper.jar
+
+/config/
+*.qxw
