@@ -59,9 +59,9 @@ fun parseAndVerifyArguments(args: Array<String>): CommandLineArguments {
 class CommandLineArguments(val arguments: Map<ArgumentType, List<String>>) {
 
   enum class ArgumentType(val id: String, val emptyAllowed: Boolean) {
-    TracksTopLevelFolders("tracks-top-level-folders", emptyAllowed = false),
-    ExcludedCrates("excluded-crates", emptyAllowed = true),
-    CrateFilesDestination("crate-files-destination", emptyAllowed = false);
+    TracksTopLevelFolders("-tracks-top-level-folders", emptyAllowed = false),
+    ExcludedCrates("-excluded-crates", emptyAllowed = true),
+    CrateFilesDestination("-crate-files-destination", emptyAllowed = false);
 
     companion object {
       val mappedById = values().associateBy { it.id }
@@ -81,16 +81,19 @@ class CommandLineArguments(val arguments: Map<ArgumentType, List<String>>) {
       val mappedArguments = mutableMapOf<ArgumentType, List<String>>()
 
       for (argument in arguments) {
-        if (argument.startsWith("-")) {
-          currentArgumentType = ArgumentType.fromId(argument.removePrefix("-"))
-        } else {
-          if (currentArgumentType == null) {
-            println("The first argument has to be an ArgumentType!")
-            exitProcess(1)
-          }
 
-          mappedArguments[currentArgumentType] = (mappedArguments[currentArgumentType] ?: emptyList()) + argument
+        val argumentType = ArgumentType.fromId(argument)
+        if (argumentType != null) {
+          currentArgumentType = argumentType
+          continue
         }
+
+        if (currentArgumentType == null) {
+          println("The first argument has to be an ArgumentType!")
+          exitProcess(1)
+        }
+
+        mappedArguments[currentArgumentType] = (mappedArguments[currentArgumentType] ?: emptyList()) + argument
       }
 
       // fill missing values with empty values
