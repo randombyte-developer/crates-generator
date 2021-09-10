@@ -5,6 +5,7 @@ import de.randombyte.crates.CommandLineArguments.ArgumentType.*
 import java.nio.file.Paths
 import java.io.BufferedWriter
 import java.io.File
+import java.sql.DriverManager
 import kotlin.system.exitProcess
 
 val AUDIO_FILE_EXTENSIONS = listOf("mp3", "m4a", "opus", "flac")
@@ -15,6 +16,35 @@ fun BufferedWriter.writeLine(line: String) {
 }
 
 fun main(args: Array<String>) {
+  when (args.getOrNull(0)) {
+    "generate" -> generateCrates(args.drop(1))
+    "clear" -> clearCrates(args.drop(1))
+    else -> println("Unknown command! Use 'generate' or 'clear'.")
+  }
+}
+
+fun clearCrates(args: List<String>) {
+  val osName = System.getProperty("os.name")
+
+  val userHome = File(System.getProperty("user.home"))
+  val mixxxFolder = if (osName.contains("Windows")) {
+    userHome.resolve("AppData").resolve("Local").resolve("Mixxx")
+  } else {
+    userHome.resolve(".mixxx")
+  }
+
+  val mixxxDb = mixxxFolder.resolve("mixxxdb.sqlite")
+  if (!mixxxDb.exists()) {
+    println("Database at '${mixxxDb.absolutePath}' doesn't exist!")
+    exitProcess(1)
+  }
+
+  val connection = DriverManager.getConnection("jdbc:sqlite:${mixxxDb.absolutePath}").use { connection ->
+    connection.createStatement().executeUpdate("DELETE FROM crates;")
+  }
+}
+
+fun generateCrates(args: List<String>) {
   val arguments = parseAndVerifyArguments(args)
 
   val filesWithPriority = writeM3uFiles(arguments, PriorityTopLevelFolders, excludeFiles = emptyList())
@@ -60,7 +90,7 @@ fun writeM3uFiles(arguments: CommandLineArguments, topLevelsFoldersArgument: Arg
   return allFileNames
 }
 
-fun parseAndVerifyArguments(args: Array<String>): CommandLineArguments {
+fun parseAndVerifyArguments(args: List<String>): CommandLineArguments {
   val arguments = CommandLineArguments.from(args)
 
   val emptyArguments = arguments.findEmptyArguments()
@@ -97,7 +127,7 @@ class CommandLineArguments(val arguments: Map<ArgumentType, List<String>>) {
     .filter { type -> !type.emptyAllowed && arguments.getValue(type).isEmpty() }
 
   companion object {
-    fun from(arguments: Array<String>): CommandLineArguments {
+    fun from(arguments: List<String>): CommandLineArguments {
       var currentArgumentType: ArgumentType? = null
       val mappedArguments = mutableMapOf<ArgumentType, List<String>>()
 
