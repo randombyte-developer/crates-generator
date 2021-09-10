@@ -1,12 +1,13 @@
 package de.randombyte.crates
 
+import de.randombyte.crates.CommandLineArguments.ArgumentType
 import de.randombyte.crates.CommandLineArguments.ArgumentType.*
-import java.nio.file.Paths;
-import java.io.BufferedWriter;
-import java.io.File;
+import java.nio.file.Paths
+import java.io.BufferedWriter
+import java.io.File
 import kotlin.system.exitProcess
 
-val AUDIO_FILE_EXTENSIONS = listOf("mp3", "m4a", "opus")
+val AUDIO_FILE_EXTENSIONS = listOf("mp3", "m4a", "opus", "flac")
 
 fun BufferedWriter.writeLine(line: String) {
   write(line)
@@ -14,12 +15,25 @@ fun BufferedWriter.writeLine(line: String) {
 }
 
 fun main(args: Array<String>) {
-
   val arguments = parseAndVerifyArguments(args)
 
+  val filesWithPriority = writeM3uFiles(arguments, PriorityTopLevelFolders, excludeFiles = emptyList())
+  val normalFiles = writeM3uFiles(arguments, TracksTopLevelFolders, excludeFiles = filesWithPriority)
+
+  val priorityFilesWithoutDuplicate = filesWithPriority.filter { priorityFile -> priorityFile !in normalFiles }
+
+  if (priorityFilesWithoutDuplicate.isNotEmpty()) {
+    println("Priority files without any duplicate (they overrode nothing):\n")
+    priorityFilesWithoutDuplicate.forEach { println(it) }
+  }
+}
+
+fun writeM3uFiles(arguments: CommandLineArguments, topLevelsFoldersArgument: ArgumentType, excludeFiles: List<String>): List<String> {
   val crateFilesDestinationPath = Paths.get(arguments[CrateFilesDestination].single())
 
-  arguments[TracksTopLevelFolders].forEach { folderStringPath ->
+  val allFileNames = mutableListOf<String>()
+
+  arguments[topLevelsFoldersArgument].forEach { folderStringPath ->
     val crates = File(folderStringPath)
       .walk()
       .filter { file -> file.isDirectory && file.name !in arguments[ExcludedCrates] }
@@ -31,13 +45,19 @@ fun main(args: Array<String>) {
         .apply { parentFile.mkdirs(); createNewFile() }
         .bufferedWriter().use { writer ->
           writer.writeLine("#EXTM3U")
-          trackPaths.forEach { trackPath ->
+          trackPaths.forEach innerFor@ { trackPath ->
+            val fileName = File(trackPath).nameWithoutExtension
+            allFileNames += fileName
+            if (fileName in excludeFiles) return@innerFor
+
             writer.writeLine("#EXTINF")
             writer.writeLine(trackPath)
           }
-      }
+        }
     }
   }
+
+  return allFileNames
 }
 
 fun parseAndVerifyArguments(args: Array<String>): CommandLineArguments {
@@ -60,6 +80,7 @@ class CommandLineArguments(val arguments: Map<ArgumentType, List<String>>) {
 
   enum class ArgumentType(val id: String, val emptyAllowed: Boolean) {
     TracksTopLevelFolders("-tracks-top-level-folders", emptyAllowed = false),
+    PriorityTopLevelFolders("-priority-top-level-folders", emptyAllowed = true),
     ExcludedCrates("-excluded-crates", emptyAllowed = true),
     CrateFilesDestination("-crate-files-destination", emptyAllowed = false);
 
