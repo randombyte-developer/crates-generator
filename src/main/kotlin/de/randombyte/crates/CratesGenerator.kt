@@ -8,7 +8,7 @@ import java.io.File
 import java.sql.DriverManager
 import kotlin.system.exitProcess
 
-val AUDIO_FILE_EXTENSIONS = listOf("mp3", "m4a", "opus", "flac")
+val AUDIO_FILE_EXTENSIONS = listOf("mp3", "m4a", "opus", "flac", "wav", "ogg")
 
 fun BufferedWriter.writeLine(line: String) {
   write(line)
