@@ -18,12 +18,12 @@ fun BufferedWriter.writeLine(line: String) {
 fun main(args: Array<String>) {
   when (args.getOrNull(0)) {
     "generate" -> generateCrates(args.drop(1))
-    "clear" -> clearCrates(args.drop(1))
+    "clear" -> clearCrates()
     else -> println("Unknown command! Use 'generate' or 'clear'.")
   }
 }
 
-fun clearCrates(args: List<String>) {
+fun clearCrates() {
   val osName = System.getProperty("os.name")
 
   val userHome = File(System.getProperty("user.home"))
@@ -39,7 +39,7 @@ fun clearCrates(args: List<String>) {
     exitProcess(1)
   }
 
-  val connection = DriverManager.getConnection("jdbc:sqlite:${mixxxDb.absolutePath}").use { connection ->
+  DriverManager.getConnection("jdbc:sqlite:${mixxxDb.absolutePath}").use { connection ->
     connection.createStatement().executeUpdate("DELETE FROM crates;")
   }
 }
@@ -60,6 +60,7 @@ fun generateCrates(args: List<String>) {
 
 fun writeM3uFiles(arguments: CommandLineArguments, topLevelsFoldersArgument: ArgumentType, excludeFiles: List<String>): List<String> {
   val crateFilesDestinationPath = Paths.get(arguments[CrateFilesDestination].single())
+  val fileExtensions = AUDIO_FILE_EXTENSIONS + arguments[AdditionalFileExtensions]
 
   val allFileNames = mutableListOf<String>()
 
@@ -67,7 +68,7 @@ fun writeM3uFiles(arguments: CommandLineArguments, topLevelsFoldersArgument: Arg
     val crates = File(folderStringPath)
       .walk()
       .filter { file -> file.isDirectory && file.name !in arguments[ExcludedCrates] }
-      .map { dir -> dir.name to getAudioFilesRecursively(dir) }
+      .map { dir -> dir.name to getAudioFilesRecursively(dir, fileExtensions) }
 
     crates.forEach { (crateName, trackPaths) ->
       crateFilesDestinationPath.resolve("$crateName.m3u")
@@ -112,7 +113,8 @@ class CommandLineArguments(val arguments: Map<ArgumentType, List<String>>) {
     TracksTopLevelFolders("-tracks-top-level-folders", emptyAllowed = false),
     PriorityTopLevelFolders("-priority-top-level-folders", emptyAllowed = true),
     ExcludedCrates("-excluded-crates", emptyAllowed = true),
-    CrateFilesDestination("-crate-files-destination", emptyAllowed = false);
+    CrateFilesDestination("-crate-files-destination", emptyAllowed = false),
+    AdditionalFileExtensions("-additional-file-extensions", emptyAllowed = true);
 
     companion object {
       val mappedById = values().associateBy { it.id }
@@ -157,6 +159,6 @@ class CommandLineArguments(val arguments: Map<ArgumentType, List<String>>) {
   }
 }
 
-fun getAudioFilesRecursively(folder: File): List<String> {
-  return folder.walk().filter { it.isFile && it.extension in AUDIO_FILE_EXTENSIONS }.map { it.absolutePath }.toList()
+fun getAudioFilesRecursively(folder: File, fileExtensions: List<String>): List<String> {
+  return folder.walk().filter { it.isFile && it.extension in fileExtensions }.map { it.absolutePath }.toList()
 }
